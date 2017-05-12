@@ -1,11 +1,21 @@
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+from common import CommonHandler
+import requests
 
 
-gauth = GoogleAuth(settings_file = "/home/arpitgoyal/projects/cloudbrowse/client_secrets.json")
-#gauth.LocalWebserverAuth()
+class GoogleDriveHandler(CommonHandler):
 
-drive = GoogleDrive(gauth)
-file_list = drive.ListFile({'q': "'root' in parents and trashed=false"}).GetList()
-for file1 in file_list:
-      print('title: %s, id: %s' % (file1['title'], file1['id']))
+    API_HOST = "https://www.googleapis.com/drive/v2"
+    LIST_FILES_URL = API_HOST + "/files"
+
+    def __init__(self, source):
+        super(GoogleDriveHandler, self).__init__(source)
+
+        self.auth_token = self.auth_data.get("access_token")
+        self.headers = {
+            "Authorization" : "Bearer {0}".format(self.auth_token)
+        }
+
+    def list_files(self):
+        response = requests.get(LIST_FILES_URL, headers = self.headers)
+
+        import ipdb; ipdb.set_trace()

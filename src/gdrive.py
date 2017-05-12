@@ -16,6 +16,5 @@ class GoogleDriveHandler(CommonHandler):
         }
 
     def list_files(self):
-        response = requests.get(LIST_FILES_URL, headers = self.headers)
+        response = requests.get(self.LIST_FILES_URL, headers = self.headers)
 
-        import ipdb; ipdb.set_trace()

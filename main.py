@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import webbrowser
 import sys
@@ -21,6 +22,38 @@ def process_token_generation(source):
     print "Opening web browser for authenticating with {0}".format(SOURCE_CODES_TO_NAMES[source])
     #Browser window opening and closing needs better enhancements to support multiple platform
     webbrowser.open("http://localhost:9201?src={0}".format(source), new = 2)
+
+
+def refresh_auth_token(source):
+    """
+    refreshes the auth token if the token has expired
+    """
+    import time
+    import requests
+
+    token_path = SOURCE_TOKEN_PATHS[source]
+    data = json.loads(open(token_path, "r").read())
+    current_unix_time = time.time()
+    file_last_modified = os.path.getmtime(token_path)
+
+    if not (current_unix_time - file_last_modified > data.get("expires_in")):
+        return
+
+    post_data = {
+        "client_id" : os.environ.get("CLIENT_ID"),
+        "client_secret" : os.environ.get("CLIENT_SECRET"),
+        "refresh_token" : data.get("refresh_token"),
+        "grant_type" : "refresh_token"
+    }
+
+    response = requests.post("https://www.googleapis.com/oauth2/v4/token", post_data)
+    response_content = response.json()
+    response_content.update({"refresh_token" : data.get("refresh_token")})
+
+    with open(token_path, "w") as f:
+        f.write(json.dumps(response_content))
+
+    f.close()
 
 
 if __name__ == '__main__':
@@ -46,6 +79,8 @@ if __name__ == '__main__':
     if not os.path.exists(SOURCE_TOKEN_PATHS[source]):
         parser.error("\nYou have not authenticated with {0}\n\nRun the following command to authenticate\n\ncloudbrowse --src {1} --auth".format(SOURCE_CODES_TO_NAMES[source], source))
         sys.exit()
+
+    refresh_auth_token(source)
 
     if cl_arguments.get("list"):
         handler = SOURCE_TO_HANDLERS[source](source = source)

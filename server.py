@@ -50,7 +50,7 @@ def callback():
     returned by google on user verification
     """
     if 'code' not in flask.request.args:
-        auth_uri = "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id={0}&redirect_uri={1}&scope={2}".format(CLIENT_ID, REDIRECT_URI, SCOPE)
+        auth_uri = "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id={0}&redirect_uri={1}&scope={2}&access_type=offline".format(CLIENT_ID, REDIRECT_URI, SCOPE)
         return flask.redirect(auth_uri)
     else:
         auth_code = flask.request.args.get("code")

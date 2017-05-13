@@ -18,3 +18,4 @@ class GoogleDriveHandler(CommonHandler):
     def list_files(self):
         response = requests.get(self.LIST_FILES_URL, headers = self.headers)
 
+        print response.json()

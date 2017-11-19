@@ -2,7 +2,6 @@ import flask
 import requests
 import json
 import os
-import webbrowser
 from main import SOURCE_TOKEN_PATHS
 import uuid
 
@@ -33,6 +32,7 @@ def create_credential_file(file_path, response_json):
 
         return False
 
+
 @app.route("/")
 def index():
     """
@@ -42,6 +42,7 @@ def index():
     source = flask.request.args.get("src")
 
     return flask.redirect(flask.url_for("callback"))
+
 
 @app.route("/callback")
 def callback():
@@ -55,15 +56,19 @@ def callback():
     else:
         auth_code = flask.request.args.get("code")
         data = {
-            "code" : auth_code,
-            "client_id" : CLIENT_ID,
-            "client_secret" : CLIENT_SECRET,
-            "redirect_uri" : REDIRECT_URI,
-            "grant_type" : "authorization_code"
+            "code": auth_code,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "redirect_uri": REDIRECT_URI,
+            "grant_type": "authorization_code"
         }
-        response = requests.post('https://www.googleapis.com/oauth2/v4/token', data=data)
+        response = requests.post(
+            'https://www.googleapis.com/oauth2/v4/token',
+            data=data
+        )
         file_path = SOURCE_TOKEN_PATHS['gdrive']
-        credentials_created = create_credential_file(file_path, response.json())
+        credentials_created = create_credential_file(
+            file_path, response.json())
 
         if credentials_created:
             return "We have received the authorization token. You may close the browser window now. We do not store any of your information."
@@ -74,4 +79,4 @@ def callback():
 if __name__ == '__main__':
     app.secret_key = str(uuid.uuid4())
     app.debug = False
-    app.run(port = "9201")
+    app.run(port="9201", threaded=True)

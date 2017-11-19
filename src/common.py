@@ -1,6 +1,7 @@
 from constants import SOURCE_TOKEN_PATHS
 import json
 
+
 class CommonHandler(object):
 
     def __init__(self, source):

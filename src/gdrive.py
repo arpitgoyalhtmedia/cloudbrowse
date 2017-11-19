@@ -17,7 +17,6 @@ class GoogleDriveDataParser(object):
     def convert_size(self, size_bytes):
         if size_bytes in [0, "", None]:
             return "0B"
-        print size_bytes
 
         size_bytes = float(size_bytes)
         size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
@@ -43,20 +42,21 @@ class GoogleDriveDataParser(object):
 
         return root_items
 
-    def get_root_folders_and_files(self):
+    def get_files(self, items=None):
         """
         divide the root items into folder and files
         """
-        all_root_folders = []; all_root_files = []
-        root_items = self.get_root_files()
+        all_files = []
 
-        for item in root_items:
-            if item.get("mimeType") == 'application/vnd.google-apps.folder':
-                all_root_folders.append(item)
-            else:
-                all_root_files.append(item)
+        if not items:
+            items = self.get_root_files()
 
-        return all_root_folders, all_root_files
+        for item in items:
+            if item.get("labels").get("trashed"):
+                continue
+            all_files.append(item)
+
+        return all_files
 
     def get_display_data(self, data):
         """
@@ -68,13 +68,14 @@ class GoogleDriveDataParser(object):
         console_data = []
 
         for datum in data:
-            file_type = "folder" if datum.get("mimeType")=="application/vnd.google-apps.folder" else "file"
+            file_type = "folder" if datum.get("mimeType") == \
+                "application/vnd.google-apps.folder" else "file"
             console_data.append({
-                "id" : datum.get("id"),
-                "title" : datum.get("title"),
-                "created_date" : datum.get("createdDate"),
-                "file_size" : self.convert_size(datum.get("fileSize")),
-                "file_type" : file_type
+                "id": datum.get("id"),
+                "title": datum.get("title"),
+                "created_date": datum.get("createdDate"),
+                "file_size": self.convert_size(datum.get("fileSize")),
+                "file_type": file_type
             })
 
         return console_data
@@ -84,6 +85,7 @@ class GoogleDriveHandler(CommonHandler):
 
     API_HOST = "https://www.googleapis.com/drive/v2"
     LIST_FILES_URL = API_HOST + "/files"
+    GET_FILES_DATA_URL = API_HOST + "/files/{fileId}"
     LIST_FOLDER_FILES_URL = API_HOST + "/files/{folderId}/children"
 
     def __init__(self, source):
@@ -91,14 +93,17 @@ class GoogleDriveHandler(CommonHandler):
 
         self.auth_token = self.auth_data.get("access_token")
         self.headers = {
-            "Authorization" : "Bearer {0}".format(self.auth_token)
+            "Authorization": "Bearer {0}".format(self.auth_token)
         }
 
     def convert_for_texttable(self, data):
         """
         converts the data in the format as supported by texttype
         """
-        texttable_data = [["id", "title", "created_date", "file_size", "file_type"]]
+        texttable_data = [[
+            "id", "title", "created_date", "file_size",
+            "file_type"
+        ]]
 
         for datum in data:
             resetable_array = []
@@ -108,18 +113,11 @@ class GoogleDriveHandler(CommonHandler):
 
         return texttable_data
 
-    def list_files(self):
+    def draw_texttable(self, texttable_data):
         """
-        lists the file and prints in the console
+        draws the text table with a particular dataset
+        provided
         """
-        response = requests.get(self.LIST_FILES_URL, headers = self.headers)
-
-        parser = GoogleDriveDataParser(response_data = response.json())
-
-        root_items = parser.get_root_files()
-        display_data_root = parser.get_display_data(root_items)
-        texttable_data = self.convert_for_texttable(display_data_root)
-
         table = Texttable()
         table.set_deco(Texttable.HEADER)
         table.set_cols_align(["c", "c", "c", "c", "c"])
@@ -127,3 +125,46 @@ class GoogleDriveHandler(CommonHandler):
         table.add_rows(texttable_data)
 
         print table.draw()
+
+    def get_file_data(self, file_id):
+        """
+        gets the file details by id
+        """
+        URL = self.GET_FILES_DATA_URL.format(**{"fileId": file_id})
+        response = requests.get(URL, headers=self.headers)
+
+        return response.json()
+
+    def list_files(self):
+        """
+        lists the file and prints in the console
+        """
+        response = requests.get(
+            self.LIST_FILES_URL, headers=self.headers)
+
+        parser = GoogleDriveDataParser(response_data=response.json())
+
+        root_items = parser.get_root_files()
+        display_data_root = parser.get_display_data(root_items)
+        texttable_data = self.convert_for_texttable(display_data_root)
+
+        self.draw_texttable(texttable_data)
+
+    def get_folder_files(self, folder_id):
+        """
+        lists the files inside a particular folder
+        """
+        URL = self.LIST_FOLDER_FILES_URL.format(**{'folderId': folder_id})
+        response = requests.get(URL, headers=self.headers)
+        parser = GoogleDriveDataParser(response_data=response.json())
+
+        all_file_data = map(
+            lambda f: self.get_file_data(f.get("id")),
+            response.json().get("items")
+        )
+
+        all_files = parser.get_files(all_file_data)
+        display_data = parser.get_display_data(all_files)
+        texttable_data = self.convert_for_texttable(display_data)
+
+        self.draw_texttable(texttable_data)

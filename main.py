@@ -4,11 +4,13 @@ import os
 import webbrowser
 import sys
 from src import GoogleDriveHandler
-from src.constants import *
+from arguments import ARGPARSE_ARGUMENTS
+from src.constants import SOURCE_CODES_TO_NAMES, \
+        CREDENTIALS_DIRECTORY, SOURCE_TOKEN_PATHS
 
 
 SOURCE_TO_HANDLERS = {
-    "gdrive" : GoogleDriveHandler
+    "gdrive": GoogleDriveHandler
 }
 
 
@@ -19,9 +21,14 @@ def process_token_generation(source):
     processes
     """
 
-    print "Opening web browser for authenticating with {0}".format(SOURCE_CODES_TO_NAMES[source])
-    #Browser window opening and closing needs better enhancements to support multiple platform
-    webbrowser.open("http://localhost:9201?src={0}".format(source), new = 2)
+    print "Opening web browser for authenticating with {0}".format(
+        SOURCE_CODES_TO_NAMES[source])
+    # Browser window opening and closing needs better
+    # enhancements to support multiple platform
+    webbrowser.open(
+        "http://localhost:9201?src={0}".format(source),
+        new=2
+    )
 
 
 def refresh_auth_token(source):
@@ -40,15 +47,18 @@ def refresh_auth_token(source):
         return
 
     post_data = {
-        "client_id" : os.environ.get("CLIENT_ID"),
-        "client_secret" : os.environ.get("CLIENT_SECRET"),
-        "refresh_token" : data.get("refresh_token"),
-        "grant_type" : "refresh_token"
+        "client_id": os.environ.get("CLIENT_ID"),
+        "client_secret": os.environ.get("CLIENT_SECRET"),
+        "refresh_token": data.get("refresh_token"),
+        "grant_type": "refresh_token"
     }
 
-    response = requests.post("https://www.googleapis.com/oauth2/v4/token", post_data)
+    response = requests.post(
+        "https://www.googleapis.com/oauth2/v4/token", post_data)
     response_content = response.json()
-    response_content.update({"refresh_token" : data.get("refresh_token")})
+    response_content.update({
+        "refresh_token": data.get("refresh_token")
+    })
 
     with open(token_path, "w") as f:
         f.write(json.dumps(response_content))
@@ -56,19 +66,26 @@ def refresh_auth_token(source):
     f.close()
 
 
-if __name__ == '__main__':
+def _create_required_folders():
     """
-    Main function which parses the arguments provided
-    in the command line.
+    creates the required folders in application startup
     """
     if not os.path.exists(CREDENTIALS_DIRECTORY):
         os.makedirs(CREDENTIALS_DIRECTORY)
 
-    parser = argparse.ArgumentParser(description="Argument parser for the command line utility of cloudbrowse to \
-                                     browse through the cloud files.")
-    parser.add_argument('--src', required = True, help = 'source of the cloud.. supported values are: \n gdrive = Google Drive\n odrive = Microsoft OneDrive\n')
-    parser.add_argument('-l', '--list', action='store_true', help = 'lists the files in the cloud service')
-    parser.add_argument('--auth', action='store_true', help= 'process of authentication with a particular service')
+
+def _create_argument_parser():
+    """
+    loads the argument parser
+    """
+    parser = argparse.ArgumentParser(
+        description="Argument parser for the command line utility of" +
+        "cloudbrowse to browse through the cloud files."
+    )
+
+    for argument, argument_values in ARGPARSE_ARGUMENTS.iteritems():
+        parser.add_argument(argument, **argument_values)
+
     cl_arguments = vars(parser.parse_args())
     source = cl_arguments.get("src")
 
@@ -77,11 +94,38 @@ if __name__ == '__main__':
         sys.exit()
 
     if not os.path.exists(SOURCE_TOKEN_PATHS[source]):
-        parser.error("\nYou have not authenticated with {0}\n\nRun the following command to authenticate\n\ncloudbrowse --src {1} --auth".format(SOURCE_CODES_TO_NAMES[source], source))
+        parser.error(
+            "\nYou have not authenticated with {0}\n\n".format(
+                SOURCE_CODES_TO_NAMES[source]) +
+            " Run the following command to authenticate\n\ncloudbrowse" +
+            "--src {1} --auth".format(source)
+        )
         sys.exit()
 
     refresh_auth_token(source)
 
-    if cl_arguments.get("list"):
-        handler = SOURCE_TO_HANDLERS[source](source = source)
+    if cl_arguments.get("list") == "list":
+        handler = SOURCE_TO_HANDLERS[source](source=source)
         handler.list_files()
+    else:
+        handler = SOURCE_TO_HANDLERS[source](source=source)
+        handler.get_folder_files(cl_arguments.get("list"))
+
+
+if __name__ == '__main__':
+    """
+    Main function which parses the arguments provided
+    in the command line.
+    """
+
+    """
+    create folders
+    """
+
+    _create_required_folders()
+
+    """
+    load parser arguments
+    """
+
+    _create_argument_parser()
